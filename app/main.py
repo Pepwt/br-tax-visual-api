@@ -78,6 +78,8 @@ async def simular(request: Request):
             "descricao": resultado.get("descricao"),
             "concat_code": resultado.get("concat_code"),
             "interestadual": resultado.get("interestadual"),
+            "exterior": resultado.get("exterior"),
+            "explicacao_fiscal": resultado.get("explicacao_fiscal"),
             "diagram": f"https://br-tax-visual-api.onrender.com/outputs/{filename}"
         }
 
