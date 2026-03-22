@@ -2,7 +2,6 @@ from pathlib import Path
 from uuid import uuid4
 from PIL import Image, ImageDraw, ImageFont
 
-
 class DiagramService:
     def __init__(self, output_dir: str = "outputs"):
         self.output_dir = Path(output_dir)
