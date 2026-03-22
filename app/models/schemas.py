@@ -1,30 +1,16 @@
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class ScenarioRequest(BaseModel):
-    operacao: str
-    origem: str
-    destino: str
-    finalidade: str
-    contribuinte: bool | str
-    destinatario_final: bool | str
-    observacao: Optional[str] = None
+    operacao: str = Field(..., description="compra ou venda")
+    origem: str = Field(..., description="UF de origem, ex: SP")
+    destino: str = Field(..., description="UF de destino, ex: RJ")
+    finalidade: str = Field(..., description="consumo, revenda, industrializacao, ativo")
+    contribuinte: bool | str = Field(..., description='true/false ou "true"/"false"')
+    destinatario_final: bool | str = Field(..., description='true/false ou "true"/"false"')
+    observacao: Optional[str] = Field(default=None)
 
-
-class DiagramResponse(BaseModel):
-    status: str
-    image_url: str
-    resultado: Dict[str, Any]
-
-
-class PdfRequest(BaseModel):
-    titulo: str
-    pergunta: str
-    resposta: str
-    image_url: Optional[str] = None
-
-
-class PdfResponse(BaseModel):
-    status: str
-    pdf_url: str
+    model_config = {
+        "extra": "ignore"
+    }
