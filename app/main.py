@@ -1,10 +1,9 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 
-from app.models.schemas import ScenarioRequest
 from app.services.cfop_service import CFOPService
 from app.services.tax_service import TaxService
 from app.services.diagram_service import DiagramService
@@ -22,10 +21,23 @@ tax_service = TaxService()
 diagram_service = DiagramService()
 
 
-def to_bool(valor) -> bool:
+def to_bool(valor, default=False) -> bool:
+    if valor is None:
+        return default
     if isinstance(valor, bool):
         return valor
     return str(valor).strip().lower() in ["true", "1", "sim", "yes"]
+
+
+class SimplePayload:
+    def __init__(self, data: dict):
+        self.operacao = str(data.get("operacao", "compra")).strip().lower()
+        self.origem = str(data.get("origem", "SP")).strip().upper()
+        self.destino = str(data.get("destino", "RJ")).strip().upper()
+        self.finalidade = str(data.get("finalidade", "consumo")).strip().lower()
+        self.contribuinte = to_bool(data.get("contribuinte", True), True)
+        self.destinatario_final = to_bool(data.get("destinatario_final", True), True)
+        self.observacao = str(data.get("observacao", "gerado automaticamente")).strip()
 
 
 @app.get("/")
@@ -39,11 +51,14 @@ def health():
 
 
 @app.post("/simular")
-def simular(payload: ScenarioRequest):
+async def simular(request: Request):
     try:
-        # Normaliza booleans vindos do Agent Studio
-        payload.contribuinte = to_bool(payload.contribuinte)
-        payload.destinatario_final = to_bool(payload.destinatario_final)
+        data = await request.json()
+
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=400, detail="O corpo da requisição deve ser um JSON object.")
+
+        payload = SimplePayload(data)
 
         cfop_info = cfop_service.sugerir_cfop(
             payload.operacao,
@@ -66,5 +81,7 @@ def simular(payload: ScenarioRequest):
             "diagram": f"https://br-tax-visual-api.onrender.com/outputs/{filename}"
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

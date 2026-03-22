@@ -18,7 +18,7 @@ class TaxService:
         )
 
         return {
-            "cfop": cfop_info["cfop"],
+            "cfop": cfop_info.get("cfop"),
             "descricao": cfop_info.get("descricao"),
             "concat_code": cfop_info.get("concat_code"),
             "difal": difal,
