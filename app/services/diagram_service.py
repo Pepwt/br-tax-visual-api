@@ -1,6 +1,12 @@
+from fileinput import filename
 from pathlib import Path
 from uuid import uuid4
 from PIL import Image, ImageDraw, ImageFont
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+OUTPUT_DIR = BASE_DIR / "outputs"
+file_path = OUTPUT_DIR / filename
 
 class DiagramService:
     def __init__(self, output_dir: str = "outputs"):
