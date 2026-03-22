@@ -1,17 +1,16 @@
-from fileinput import filename
 from pathlib import Path
 from uuid import uuid4
 from PIL import Image, ImageDraw, ImageFont
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = BASE_DIR / "outputs"
-file_path = OUTPUT_DIR / filename
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class DiagramService:
-    def __init__(self, output_dir: str = "outputs"):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
+    def __init__(self, output_dir: str | None = None):
+        self.output_dir = Path(output_dir) if output_dir else OUTPUT_DIR
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.colors = {
             "bg": "#F7F9FC",
@@ -154,12 +153,12 @@ class DiagramService:
         img = Image.new("RGB", (width, height), self.colors["bg"])
         draw = ImageDraw.Draw(img)
 
-        # Header
-        draw.rounded_rectangle((20, 20, 1780, 140), radius=20, fill="#8EC5FC", outline="#5B9EEA", width=2)
         title_font = self._get_font(40, bold=True)
         subtitle_font = self._get_font(18)
 
+        draw.rounded_rectangle((20, 20, 1780, 140), radius=20, fill="#8EC5FC", outline="#5B9EEA", width=2)
         draw.text((60, 45), "BR Tax Enterprise Process Flow", fill="#0F172A", font=title_font)
+
         subtitle = (
             f"Operação: {payload.operacao.upper()} | "
             f"{payload.origem.upper()} → {payload.destino.upper()} | "
@@ -168,7 +167,6 @@ class DiagramService:
         )
         draw.text((60, 100), subtitle, fill="#0F172A", font=subtitle_font)
 
-        # Lanes
         lanes = {
             "origem": (20, 180, 1780, 380),
             "fusion": (20, 390, 1780, 590),
@@ -183,19 +181,16 @@ class DiagramService:
         self._draw_lane(draw, *lanes["fiscal"], "Fiscal\nDetermination")
         self._draw_lane(draw, *lanes["output"], "Output /\nAccounting")
 
-        # Lane origem
         self._draw_circle(draw, 320, 280, 42, "Início")
         self._draw_box(draw, 430, 235, 730, 325, "Criar transação\n(Invoice / PO / Shipment)", self.colors["box_origin"])
         self._draw_arrow(draw, 362, 280, 430, 280)
 
-        # Lane fusion
         self._draw_box(draw, 430, 445, 730, 535, "Submeter transação\nno Oracle Fusion", self.colors["box_fusion"])
         self._draw_arrow(draw, 580, 325, 580, 445)
 
         self._draw_box(draw, 860, 445, 1160, 535, "Call ZX Tax Engine", self.colors["box_fusion"])
         self._draw_arrow(draw, 730, 490, 860, 490)
 
-        # Lane tax
         self._draw_box(draw, 430, 655, 730, 745, "Avaliar regime fiscal\ne jurisdição", self.colors["box_tax"])
         self._draw_arrow(draw, 1010, 535, 1010, 620)
         draw.line((1010, 620, 580, 620), fill=self.colors["line"], width=3)
@@ -204,10 +199,17 @@ class DiagramService:
         self._draw_diamond(draw, 980, 700, 190, 120, "Interestadual?")
         self._draw_arrow(draw, 730, 700, 885, 700)
 
-        self._draw_box(draw, 1180, 645, 1480, 735, f"Fluxo {'interestadual' if resultado['interestadual'] else 'interno'}\n{payload.origem.upper()} → {payload.destino.upper()}", self.colors["box_tax"])
+        self._draw_box(
+            draw,
+            1180,
+            645,
+            1480,
+            735,
+            f"Fluxo {'interestadual' if resultado['interestadual'] else 'interno'}\n{payload.origem.upper()} → {payload.destino.upper()}",
+            self.colors["box_tax"]
+        )
         self._draw_arrow(draw, 1075, 700, 1180, 700, label="Sim" if resultado["interestadual"] else "Não")
 
-        # Lane fiscal
         self._draw_diamond(draw, 520, 910, 190, 120, "Contribuinte?")
         self._draw_arrow(draw, 1330, 735, 1330, 855)
         draw.line((1330, 855, 520, 855), fill=self.colors["line"], width=3)
@@ -223,7 +225,6 @@ class DiagramService:
         self._draw_box(draw, 1460, 865, 1720, 955, difal_texto, "#FDE68A")
         self._draw_arrow(draw, 1380, 910, 1460, 910)
 
-        # Lane output
         descricao = resultado.get("descricao", "Sem descrição")
         self._draw_box(draw, 340, 1070, 760, 1180, f"Gerar FDG / Documento Fiscal\n{descricao}", self.colors["box_output"])
         self._draw_arrow(draw, 1210, 955, 1210, 1025)
