@@ -1,21 +1,24 @@
-from app.utils.helpers import eh_interestadual
-
-
 class TaxService:
-    def calcular(self, payload, cfop_info):
-        interestadual = eh_interestadual(payload.origem, payload.destino)
 
-        difal = (
-            payload.operacao.lower() == "venda"
-            and interestadual
-            and payload.destinatario_final
-            and not payload.contribuinte
-        )
+    def str_to_bool(self, valor):
+        return str(valor).strip().lower() in ["true", "1", "sim", "yes"]
+
+    def calcular(self, payload, cfop):
+
+        contribuinte = self.str_to_bool(payload.contribuinte)
+        destinatario_final = self.str_to_bool(payload.destinatario_final)
+
+        difal = False
+
+        if contribuinte and not destinatario_final:
+            difal = True
 
         return {
-            "cfop": cfop_info["cfop"],
-            "descricao": cfop_info.get("descricao"),
-            "concat_code": cfop_info.get("concat_code"),
+            "cfop": cfop,
             "difal": difal,
-            "interestadual": interestadual
+            "descricao": "Simulação fiscal baseada no cenário informado",
+            "regras_aplicadas": {
+                "contribuinte": contribuinte,
+                "destinatario_final": destinatario_final
+            }
         }
