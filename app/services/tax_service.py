@@ -1,24 +1,26 @@
 class TaxService:
-
     def str_to_bool(self, valor):
+        if isinstance(valor, bool):
+            return valor
         return str(valor).strip().lower() in ["true", "1", "sim", "yes"]
 
-    def calcular(self, payload, cfop):
-
+    def calcular(self, payload, cfop_info):
         contribuinte = self.str_to_bool(payload.contribuinte)
         destinatario_final = self.str_to_bool(payload.destinatario_final)
 
-        difal = False
+        interestadual = payload.origem.strip().upper() != payload.destino.strip().upper()
 
-        if contribuinte and not destinatario_final:
-            difal = True
+        difal = (
+            payload.operacao.lower() == "venda"
+            and interestadual
+            and destinatario_final
+            and not contribuinte
+        )
 
         return {
-            "cfop": cfop,
+            "cfop": cfop_info["cfop"],
+            "descricao": cfop_info.get("descricao"),
+            "concat_code": cfop_info.get("concat_code"),
             "difal": difal,
-            "descricao": "Simulação fiscal baseada no cenário informado",
-            "regras_aplicadas": {
-                "contribuinte": contribuinte,
-                "destinatario_final": destinatario_final
-            }
+            "interestadual": interestadual
         }

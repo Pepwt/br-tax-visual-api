@@ -7,8 +7,8 @@ class ScenarioRequest(BaseModel):
     origem: str
     destino: str
     finalidade: str
-    contribuinte: bool
-    destinatario_final: bool
+    contribuinte: bool | str
+    destinatario_final: bool | str
     observacao: Optional[str] = None
 
 
