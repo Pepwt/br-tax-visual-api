@@ -7,9 +7,10 @@ from uuid import uuid4
 
 from fastapi.staticfiles import StaticFiles
 
-app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 app = FastAPI()
+
+app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 cfop_service = CFOPService()
 tax_service = TaxService()
