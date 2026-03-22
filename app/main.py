@@ -4,7 +4,6 @@ from app.services.cfop_service import CFOPService
 from app.services.tax_service import TaxService
 from app.services.diagram_service import DiagramService
 from uuid import uuid4
-
 from fastapi.staticfiles import StaticFiles
 
 
