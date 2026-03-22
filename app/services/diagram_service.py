@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import uuid4
 from PIL import Image, ImageDraw, ImageFont
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = BASE_DIR / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -13,21 +14,24 @@ class DiagramService:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.colors = {
-            "bg": "#F7F9FC",
-            "title": "#1F2937",
-            "lane_fill": "#EAF2FB",
-            "lane_line": "#D1D9E6",
+            "bg": "#F5F7FA",
+            "header": "#79AEE3",
+            "header_border": "#5C95D1",
+            "lane_fill": "#EEF3F8",
+            "lane_label_fill": "#DFE8F2",
+            "lane_border": "#C8D3E0",
             "box_origin": "#DCEBFA",
-            "box_fusion": "#D9EAD3",
-            "box_tax": "#FCE5CD",
-            "box_fiscal": "#F9CB9C",
-            "box_output": "#D9D2E9",
+            "box_fusion": "#DDECD6",
+            "box_tax": "#F7E1C8",
+            "box_fiscal": "#F7D1A6",
+            "box_output": "#DDD7EF",
+            "box_difal": "#F6E08A",
             "decision": "#1E63D6",
             "decision_text": "#FFFFFF",
-            "start_end": "#66B2FF",
+            "start_end": "#69AEEF",
+            "line": "#394B5A",
             "text": "#1F2937",
-            "line": "#3A4A5A",
-            "white": "#FFFFFF"
+            "white": "#FFFFFF",
         }
 
     def _get_font(self, size: int = 18, bold: bool = False):
@@ -44,12 +48,10 @@ class DiagramService:
         current = ""
 
         for word in words:
-            test = f"{current} {word}".strip()
-            bbox = draw.textbbox((0, 0), test, font=font)
-            width = bbox[2] - bbox[0]
-
-            if width <= max_width:
-                current = test
+            candidate = f"{current} {word}".strip()
+            bbox = draw.textbbox((0, 0), candidate, font=font)
+            if (bbox[2] - bbox[0]) <= max_width:
+                current = candidate
             else:
                 if current:
                     lines.append(current)
@@ -60,12 +62,17 @@ class DiagramService:
 
         return lines
 
-    def _draw_box(self, draw, x1, y1, x2, y2, text, fill, outline=None, radius=16, font_size=18, bold=False):
-        outline = outline or self.colors["line"]
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=radius, fill=fill, outline=outline, width=2)
+    def _draw_box(self, draw, x1, y1, x2, y2, text, fill, radius=18, font_size=18, bold=False):
+        draw.rounded_rectangle(
+            (x1, y1, x2, y2),
+            radius=radius,
+            fill=fill,
+            outline=self.colors["line"],
+            width=2
+        )
 
         font = self._get_font(font_size, bold=bold)
-        max_width = (x2 - x1) - 26
+        max_width = (x2 - x1) - 24
         lines = self._wrap_text(draw, text, font, max_width)
 
         line_height = font_size + 6
@@ -74,8 +81,8 @@ class DiagramService:
 
         for line in lines:
             bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            x_text = x1 + ((x2 - x1) - text_width) / 2
+            tw = bbox[2] - bbox[0]
+            x_text = x1 + ((x2 - x1) - tw) / 2
             draw.text((x_text, y_text), line, fill=self.colors["text"], font=font)
             y_text += line_height
 
@@ -89,7 +96,8 @@ class DiagramService:
         draw.polygon(points, fill=self.colors["decision"], outline=self.colors["line"])
 
         font = self._get_font(16, bold=True)
-        lines = self._wrap_text(draw, text, font, w - 30)
+        lines = self._wrap_text(draw, text, font, w - 28)
+
         line_height = 20
         total_height = len(lines) * line_height
         y_text = cy - total_height / 2
@@ -134,14 +142,25 @@ class DiagramService:
             draw.text((mx + 8, my - 18), label, fill=self.colors["text"], font=font)
 
     def _draw_lane(self, draw, x1, y1, x2, y2, title):
-        draw.rectangle((x1, y1, x2, y2), fill=self.colors["bg"], outline=self.colors["lane_line"], width=2)
-        draw.rectangle((x1, y1, x1 + 220, y2), fill=self.colors["lane_fill"], outline=self.colors["lane_line"], width=2)
+        draw.rectangle((x1, y1, x2, y2), fill=self.colors["lane_fill"], outline=self.colors["lane_border"], width=2)
+        draw.rectangle((x1, y1, x1 + 180, y2), fill=self.colors["lane_label_fill"], outline=self.colors["lane_border"], width=2)
 
         font = self._get_font(20, bold=True)
-        bbox = draw.textbbox((0, 0), title, font=font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        draw.text((x1 + 110 - tw / 2, ((y1 + y2) / 2) - th / 2), title, fill=self.colors["text"], font=font)
+        lines = title.split("\n")
+        line_height = 26
+        total_height = len(lines) * line_height
+        y_text = ((y1 + y2) / 2) - total_height / 2
+
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            tw = bbox[2] - bbox[0]
+            draw.text((x1 + 90 - tw / 2, y_text), line, fill=self.colors["text"], font=font)
+            y_text += line_height
+
+    def _sanitize(self, value):
+        if value is None:
+            return ""
+        return str(value).replace("$", "").strip()
 
     def gerar(self, payload, resultado, filename=None):
         if filename is None:
@@ -149,93 +168,133 @@ class DiagramService:
 
         image_path = self.output_dir / filename
 
-        width, height = 1800, 1300
+        operacao = self._sanitize(payload.operacao).upper()
+        origem = self._sanitize(payload.origem).upper()
+        destino = self._sanitize(payload.destino).upper()
+        finalidade = self._sanitize(payload.finalidade).capitalize()
+        cfop = self._sanitize(resultado.get("cfop", "N/A"))
+        descricao = self._sanitize(resultado.get("descricao", "Sem descrição"))
+        interestadual = bool(resultado.get("interestadual", False))
+        difal = bool(resultado.get("difal", False))
+
+        width, height = 1800, 1280
         img = Image.new("RGB", (width, height), self.colors["bg"])
         draw = ImageDraw.Draw(img)
 
-        title_font = self._get_font(40, bold=True)
-        subtitle_font = self._get_font(18)
-
-        draw.rounded_rectangle((20, 20, 1780, 140), radius=20, fill="#8EC5FC", outline="#5B9EEA", width=2)
-        draw.text((60, 45), "BR Tax Enterprise Process Flow", fill="#0F172A", font=title_font)
-
-        subtitle = (
-            f"Operação: {payload.operacao.upper()} | "
-            f"{payload.origem.upper()} → {payload.destino.upper()} | "
-            f"Finalidade: {payload.finalidade.upper()} | "
-            f"CFOP sugerido: {resultado['cfop']}"
+        # Header
+        draw.rounded_rectangle(
+            (20, 20, 1780, 140),
+            radius=22,
+            fill=self.colors["header"],
+            outline=self.colors["header_border"],
+            width=2
         )
-        draw.text((60, 100), subtitle, fill="#0F172A", font=subtitle_font)
 
-        lanes = {
-            "origem": (20, 180, 1780, 380),
-            "fusion": (20, 390, 1780, 590),
-            "tax": (20, 600, 1780, 800),
-            "fiscal": (20, 810, 1780, 1010),
-            "output": (20, 1020, 1780, 1230),
-        }
+        title_font = self._get_font(34, bold=True)
+        sub_font = self._get_font(18)
 
-        self._draw_lane(draw, *lanes["origem"], "Origem da\nTransação")
-        self._draw_lane(draw, *lanes["fusion"], "Oracle\nFusion")
-        self._draw_lane(draw, *lanes["tax"], "Tax Engine /\nLACLS")
-        self._draw_lane(draw, *lanes["fiscal"], "Fiscal\nDetermination")
-        self._draw_lane(draw, *lanes["output"], "Output /\nAccounting")
+        draw.text((60, 40), "BR Tax Enterprise Process Flow", fill=self.colors["text"], font=title_font)
+        subtitle = f"Operação: {operacao} | Origem: {origem} → Destino: {destino} | Finalidade: {finalidade} | CFOP Sugerido: {cfop}"
+        draw.text((60, 95), subtitle, fill=self.colors["text"], font=sub_font)
 
-        self._draw_circle(draw, 320, 280, 42, "Início")
-        self._draw_box(draw, 430, 235, 730, 325, "Criar transação\n(Invoice / PO / Shipment)", self.colors["box_origin"])
-        self._draw_arrow(draw, 362, 280, 430, 280)
+        # Lanes
+        self._draw_lane(draw, 20, 180, 1780, 380, "Origem da\nTransação")
+        self._draw_lane(draw, 20, 390, 1780, 590, "Oracle\nFusion")
+        self._draw_lane(draw, 20, 600, 1780, 800, "Tax Engine /\nLACLS")
+        self._draw_lane(draw, 20, 810, 1780, 1010, "Fiscal\nDetermination")
+        self._draw_lane(draw, 20, 1020, 1780, 1230, "Output /\nAccounting")
 
-        self._draw_box(draw, 430, 445, 730, 535, "Submeter transação\nno Oracle Fusion", self.colors["box_fusion"])
-        self._draw_arrow(draw, 580, 325, 580, 445)
+        # Origem
+        self._draw_circle(draw, 300, 280, 42, "Início")
+        self._draw_box(
+            draw, 410, 235, 760, 325,
+            "Criar Transação\n(Invoice / Purchase Order / Shipment)",
+            self.colors["box_origin"]
+        )
+        self._draw_arrow(draw, 342, 280, 410, 280)
 
-        self._draw_box(draw, 860, 445, 1160, 535, "Call ZX Tax Engine", self.colors["box_fusion"])
-        self._draw_arrow(draw, 730, 490, 860, 490)
-
-        self._draw_box(draw, 430, 655, 730, 745, "Avaliar regime fiscal\ne jurisdição", self.colors["box_tax"])
-        self._draw_arrow(draw, 1010, 535, 1010, 620)
-        draw.line((1010, 620, 580, 620), fill=self.colors["line"], width=3)
-        self._draw_arrow(draw, 580, 620, 580, 655)
-
-        self._draw_diamond(draw, 980, 700, 190, 120, "Interestadual?")
-        self._draw_arrow(draw, 730, 700, 885, 700)
+        # Fusion
+        self._draw_box(
+            draw, 410, 445, 760, 535,
+            "Submeter Transação\nno Oracle Fusion",
+            self.colors["box_fusion"]
+        )
+        self._draw_arrow(draw, 585, 325, 585, 445)
 
         self._draw_box(
-            draw,
-            1180,
-            645,
-            1480,
-            735,
-            f"Fluxo {'interestadual' if resultado['interestadual'] else 'interno'}\n{payload.origem.upper()} → {payload.destino.upper()}",
+            draw, 900, 445, 1240, 535,
+            "Executar BR Tax Engine\n(Simulação Fiscal)",
+            self.colors["box_fusion"]
+        )
+        self._draw_arrow(draw, 760, 490, 900, 490)
+
+        # Tax / LACLS
+        self._draw_box(
+            draw, 410, 655, 760, 745,
+            "Avaliar Regime Fiscal\ne Jurisdição",
             self.colors["box_tax"]
         )
-        self._draw_arrow(draw, 1075, 700, 1180, 700, label="Sim" if resultado["interestadual"] else "Não")
+        self._draw_arrow(draw, 1070, 535, 1070, 620)
+        draw.line((1070, 620, 585, 620), fill=self.colors["line"], width=3)
+        self._draw_arrow(draw, 585, 620, 585, 655)
 
-        self._draw_diamond(draw, 520, 910, 190, 120, "Contribuinte?")
-        self._draw_arrow(draw, 1330, 735, 1330, 855)
-        draw.line((1330, 855, 520, 855), fill=self.colors["line"], width=3)
-        self._draw_arrow(draw, 520, 855, 520, 850)
+        self._draw_diamond(draw, 1020, 700, 210, 120, "Operação\nInterestadual?")
+        self._draw_arrow(draw, 760, 700, 915, 700)
 
-        self._draw_box(draw, 700, 865, 980, 955, f"Finalidade\n{payload.finalidade.capitalize()}", self.colors["box_fiscal"])
-        self._draw_arrow(draw, 615, 910, 700, 910, label="Sim" if payload.contribuinte else "Não")
+        self._draw_box(
+            draw, 1240, 650, 1560, 740,
+            f"{'Aplicar Regras Interestaduais' if interestadual else 'Fluxo Interno'}\n{origem} → {destino}",
+            self.colors["box_tax"]
+        )
+        self._draw_arrow(draw, 1125, 700, 1240, 700, label="Sim" if interestadual else "Não")
 
-        self._draw_box(draw, 1080, 865, 1380, 955, f"Determinar CFOP\n{resultado['cfop']}", self.colors["box_fiscal"])
-        self._draw_arrow(draw, 980, 910, 1080, 910)
+        # Fiscal determination
+        self._draw_diamond(draw, 470, 910, 210, 120, "Destinatário é\nContribuinte?")
+        self._draw_arrow(draw, 1400, 740, 1400, 855)
+        draw.line((1400, 855, 470, 855), fill=self.colors["line"], width=3)
+        self._draw_arrow(draw, 470, 855, 470, 850)
 
-        difal_texto = "Aplica DIFAL" if resultado["difal"] else "Não aplica DIFAL"
-        self._draw_box(draw, 1460, 865, 1720, 955, difal_texto, "#FDE68A")
-        self._draw_arrow(draw, 1380, 910, 1460, 910)
+        self._draw_box(
+            draw, 670, 865, 980, 955,
+            f"Finalidade:\n{finalidade}",
+            self.colors["box_fiscal"]
+        )
+        self._draw_arrow(draw, 575, 910, 670, 910, label="Sim" if bool(payload.contribuinte) else "Não")
 
-        descricao = resultado.get("descricao", "Sem descrição")
-        self._draw_box(draw, 340, 1070, 760, 1180, f"Gerar FDG / Documento Fiscal\n{descricao}", self.colors["box_output"])
-        self._draw_arrow(draw, 1210, 955, 1210, 1025)
-        draw.line((1210, 1025, 550, 1025), fill=self.colors["line"], width=3)
-        self._draw_arrow(draw, 550, 1025, 550, 1070)
+        self._draw_box(
+            draw, 1060, 865, 1370, 955,
+            f"Determinar CFOP\n{cfop}",
+            self.colors["box_fiscal"]
+        )
+        self._draw_arrow(draw, 980, 910, 1060, 910)
 
-        self._draw_box(draw, 860, 1070, 1200, 1180, "Post Accounting /\nEscrituração", self.colors["box_output"])
-        self._draw_arrow(draw, 760, 1125, 860, 1125)
+        self._draw_box(
+            draw, 1450, 865, 1710, 955,
+            "Aplica DIFAL" if difal else "Não Aplica DIFAL",
+            self.colors["box_difal"]
+        )
+        self._draw_arrow(draw, 1370, 910, 1450, 910)
 
-        self._draw_circle(draw, 1380, 1125, 42, "Fim")
-        self._draw_arrow(draw, 1200, 1125, 1338, 1125)
+        # Output
+        self._draw_box(
+            draw, 320, 1070, 820, 1185,
+            f"Gerar Documento Fiscal (NF-e) via FDG\n{descricao}",
+            self.colors["box_output"],
+            font_size=16
+        )
+        self._draw_arrow(draw, 1215, 955, 1215, 1025)
+        draw.line((1215, 1025, 570, 1025), fill=self.colors["line"], width=3)
+        self._draw_arrow(draw, 570, 1025, 570, 1070)
+
+        self._draw_box(
+            draw, 920, 1070, 1260, 1185,
+            "Post Accounting\n(Escrituração Contábil)",
+            self.colors["box_output"]
+        )
+        self._draw_arrow(draw, 820, 1127, 920, 1127)
+
+        self._draw_circle(draw, 1420, 1127, 42, "Fim")
+        self._draw_arrow(draw, 1260, 1127, 1378, 1127)
 
         img.save(image_path)
         return str(image_path)
